@@ -1,0 +1,38 @@
+# Environment files (IMPORTANT - keeps secrets out of image)
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docs
+README.md
+*.md
+
+# OS
+.DS_Store
+Thumbs.db
