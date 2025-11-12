@@ -1,14 +1,14 @@
-name: PR Checks
+name: CI for Main Branch merges
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
 jobs:
-  build-and-test:
+  lint-and-test:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,6 +21,7 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t url-shortener:test -f app/Dockerfile app
+
       - name: Test image runs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -35,3 +36,26 @@ jobs:
             url-shortener:test
           sleep 10
           curl -f http://localhost:8080/healthz || exit 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: url-shortener-repo  # CHANGED THIS
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
