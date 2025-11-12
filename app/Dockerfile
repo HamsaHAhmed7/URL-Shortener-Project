@@ -1,7 +1,11 @@
 #Stage 1: Bulid
 FROM python:3.11-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache gcc musl-dev linux-headers
+RUN apk add --no-cache \
+    gcc=12.2.1_git20220924-r10 \
+    musl-dev=1.2.4-r2 \
+    linux-headers=6.1-r4
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
