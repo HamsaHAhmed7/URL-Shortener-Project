@@ -8,30 +8,21 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-- name: Lint Dockerfile
-  uses: hadolint/hadolint-action@v3.1.0
-  with:
-    dockerfile: app/Dockerfile
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: app/Dockerfile
 
-
-- name: Build Docker image
-  run: docker build -t url-shortener:test -f app/Dockerfile app
-
+      - name: Build Docker image
+        run: docker build -t url-shortener:test -f app/Dockerfile app
 
       - name: Test image runs
         run: |
           docker run -d -p 8080:8080 url-shortener:test
           sleep 5
           curl -f http://localhost:8080/healthz
-
-
-        
-
-         
-
-     
