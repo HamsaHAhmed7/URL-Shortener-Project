@@ -22,8 +22,17 @@ jobs:
       - name: Build Docker image
         run: docker build -t url-shortener:test -f app/Dockerfile app
 
-      - name: Test image runs
-        run: |
-          docker run -d -p 8080:8080 url-shortener:test
-          sleep 20
-          curl -f http://localhost:8080/healthz
+- name: Test image runs
+  env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  run: |
+    docker run -d --name test-container \
+      -p 8080:8080 \
+      -e TABLE_NAME=url-dynamo-table \
+      -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+      -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+      -e AWS_DEFAULT_REGION=us-east-1 \
+      url-shortener:test
+    sleep 10
+    curl -f http://localhost:8080/healthz || exit 1
