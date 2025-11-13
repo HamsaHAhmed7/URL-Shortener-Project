@@ -61,7 +61,6 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
       - name: Trigger CodeDeploy Deployment
         env:
           AWS_REGION: us-east-1
@@ -72,5 +71,5 @@ jobs:
           aws deploy create-deployment \
             --application-name "$APPLICATION_NAME" \
             --deployment-group-name "$DEPLOYMENT_GROUP_NAME" \
-            --revision revisionType=AppSpecContent,appSpecContent="{\"version\":1,\"Resources\":[{\"TargetService\":{\"Type\":\"AWS::ECS::Service\",\"Properties\":{\"TaskDefinition\":\"$IMAGE_URI\",\"LoadBalancerInfo\":{\"ContainerName\":\"url-shortener-app-tf\",\"ContainerPort\":8080}}}}]}" \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"{\\\"version\\\":1,\\\"Resources\\\":[{\\\"TargetService\\\":{\\\"Type\\\":\\\"AWS::ECS::Service\\\",\\\"Properties\\\":{\\\"TaskDefinition\\\":\\\"$IMAGE_URI\\\",\\\"LoadBalancerInfo\\\":{\\\"ContainerName\\\":\\\"url-shortener-app-tf\\\",\\\"ContainerPort\\\":8080}}}}]}\"}}" \
             --region "$AWS_REGION"
