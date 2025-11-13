@@ -1,41 +1,31 @@
-name: CI for Main Branch
+name: CI/CD to ECS via CodeDeploy
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "app/**"
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: app/Dockerfile
-          override-warning: DL3018
 
       - name: Build Docker image
         run: docker build -t url-shortener:test -f app/Dockerfile app
 
-      - name: Test image runs
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Test container health
         run: |
-          docker run -d --name test-container \
-            -p 8080:8080 \
-            -e TABLE_NAME=url-dynamo-table \
-            -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-            -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-            -e AWS_DEFAULT_REGION=us-east-1 \
-            url-shortener:test
+          docker run -d -p 8080:8080 url-shortener:test
           sleep 10
-          curl -f http://localhost:8080/healthz || exit 1
+          curl -f http://localhost:8080/healthz
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,14 +38,30 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag and push to ECR
+      - name: Push to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: url-shortener-repo 
+          ECR_REPOSITORY: url-shortener-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Register new ECS task definition
+        id: register-task-def
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition url-task-definition-tf \
+            --query "taskDefinition" > taskdef.json
+          sed -i "s|016873651140.dkr.ecr.us-east-1.amazonaws.com/url-shortener-repo:[^\"']*|016873651140.dkr.ecr.us-east-1.amazonaws.com/url-shortener-repo:${{ github.sha }}|g" taskdef.json
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' taskdef.json > cleaned.json
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://cleaned.json --query "taskDefinition.taskDefinitionArn" --output text)
+          echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Trigger CodeDeploy deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name url-codedeploy-app-tf \
+            --deployment-group-name url-codedeploy-dg \
+            --revision revisionType=AppSpecContent,appSpecContent="{\"version\":1,\"Resources\":[{\"TargetService\":{\"Type\":\"AWS::ECS::Service\",\"Properties\":{\"TaskDefinition\":\"${{ env.new_task_def_arn }}\",\"LoadBalancerInfo\":{\"ContainerName\":\"url-shortener-app-tf\",\"ContainerPort\":8080}}}}]}" \
+            --region us-east-1
