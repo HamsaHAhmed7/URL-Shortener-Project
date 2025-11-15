@@ -4,7 +4,7 @@ output "domain_name" {
 }
 
 output "zone_id" {
-    value       = data.aws_route53_zone.url_zone.id
-    description = "Route53 Hosted Zone ID for the domain"
-  
+  value       = data.aws_route53_zone.url_zone.id
+  description = "Route53 Hosted Zone ID for the domain"
+
 }

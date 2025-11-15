@@ -35,5 +35,5 @@ output "alb_zone_id" {
 
 output "alb_arn" {
   value = aws_lb.url_alb.arn
-  
+
 }

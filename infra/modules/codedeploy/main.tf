@@ -26,9 +26,9 @@ resource "aws_codedeploy_app" "url_codedeploy_app" {
 }
 
 resource "aws_codedeploy_deployment_group" "url_codedeploy_dg" {
-  app_name              = aws_codedeploy_app.url_codedeploy_app.name
-  deployment_group_name = "url-codedeploy-dg"
-  service_role_arn      = aws_iam_role.codedeploy_role.arn
+  app_name               = aws_codedeploy_app.url_codedeploy_app.name
+  deployment_group_name  = "url-codedeploy-dg"
+  service_role_arn       = aws_iam_role.codedeploy_role.arn
   deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
 
   deployment_style {
