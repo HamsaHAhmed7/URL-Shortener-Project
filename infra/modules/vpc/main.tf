@@ -1,3 +1,15 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.21.0"
+    }
+  }
+}
+
+
 resource "aws_vpc" "url_shortener_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true

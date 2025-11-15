@@ -1,3 +1,17 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.21.0"
+    }
+  }
+}
+
+
+
+
 resource "aws_cloudwatch_log_group" "ecs_logs" {
   name              = "/ecs/url-task-definition-tf"
   retention_in_days = 7

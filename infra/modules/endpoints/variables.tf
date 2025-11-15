@@ -3,10 +3,7 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "ecs_sg_id" {
-  description = "The ID of the ECS security group"
-  type        = string
-}
+
 
 variable "private_subnet_ids" {
   description = "List of private subnet IDs for the ECS cluster"

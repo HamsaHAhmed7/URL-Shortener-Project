@@ -1,3 +1,15 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.21.0"
+    }
+  }
+}
+
+
 resource "aws_wafv2_web_acl" "url_waf" {
   name        = "url-shortener-waf"
   description = "WAF for URL Shortener Application"
