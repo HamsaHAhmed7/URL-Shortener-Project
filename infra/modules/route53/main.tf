@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.21.0"
+    }
+  }
+}
+
 data "aws_route53_zone" "url_zone" {
   name         = "hamsa-ahmed.co.uk"
   private_zone = false

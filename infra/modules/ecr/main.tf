@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.21.0"
+    }
+  }
+}
+
 # ECR Repository for URL Shortener Application 
 # Moved to AWS Console for better management
 
