@@ -102,3 +102,4 @@ resource "aws_lb_listener" "listener_green" {
     target_group_arn = aws_lb_target_group.green.arn
   }
 }
+#
