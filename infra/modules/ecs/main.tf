@@ -49,7 +49,7 @@ resource "aws_ecs_task_definition" "url_task_tf" {
       environment = [
         {
           name  = "TABLE_NAME"
-          value = "url-dynamo-table"
+          value = var.dynamodb_table_name
         }
       ]
 
@@ -81,6 +81,10 @@ resource "aws_ecs_service" "url_service_tf" {
   launch_type     = "FARGATE"
   desired_count   = 2
 
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
+
   load_balancer {
     target_group_arn = var.target_group_arn
     container_name   = "url-shortener-app-tf"
@@ -100,7 +104,5 @@ resource "aws_ecs_service" "url_service_tf" {
     Name = "url-service-tf"
   }
 
-  depends_on = [
-    aws_ecs_task_definition.url_task_tf
-  ]
+  depends_on = [aws_ecs_task_definition.url_task_tf]
 }
