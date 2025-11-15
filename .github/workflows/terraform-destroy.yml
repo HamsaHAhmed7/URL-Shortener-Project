@@ -1,0 +1,68 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type "destroy-all-resources" to confirm'
+        required: true
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirmation }}" != "destroy-all-resources" ]; then
+            echo "Confirmation text doesn't match. Aborting."
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::016873651140:role/Github_to_AWS_Url
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+        run: terraform destroy -auto-approve
+
+      - name: Notify Destruction
+        run: |
+          echo "🔥 Infrastructure destroyed for ${{ github.event.inputs.environment }}"
+```
+
+---
+
+## 📁 FINAL WORKFLOW STRUCTURE
+```
+.github/workflows/
+├── ci-pr.yml              # App: test + scan on PR
+├── ci-main.yml            # App: scan + build + deploy on main
+├── terraform-ci.yml       # Terraform: plan on PR, apply on main
+└── terraform-destroy.yml  # Terraform: manual destroy only
