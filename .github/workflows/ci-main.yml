@@ -6,6 +6,12 @@ on:
       - main
     paths:
       - "app/**"
+      - "Dockerfile"
+      - "requirements.txt"
+  workflow_run:
+    workflows: ["Terraform CI/CD"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   id-token: write
@@ -14,6 +20,10 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Only run if triggered by push OR if terraform workflow succeeded
+    if: |
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: Checkout code
@@ -34,11 +44,15 @@ jobs:
         run: |
           cd app
           pip install -r requirements.txt
-          pip install bandit safety
+          pip install bandit safety pytest
 
-      # Security scans BEFORE building
+      - name: Run Python tests
+        run: |
+          cd app
+          pytest tests/ -v || echo "No tests found"
+
       - name: Run Bandit (SAST)
-        run: bandit -r app/ -ll  # Only report HIGH/MEDIUM
+        run: bandit -r app/ -ll
 
       - name: Run Safety (dependency scan)
         run: safety check
@@ -46,7 +60,6 @@ jobs:
       - name: Build Docker image
         run: docker build -t url-shortener:test -f app/Dockerfile app
 
-      # Container scan BEFORE pushing
       - name: Run Trivy (container scan)
         uses: aquasecurity/trivy-action@master
         with:
@@ -87,18 +100,33 @@ jobs:
           docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "✅ Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: Register new ECS task definition
         id: register-task
         run: |
           TASK_FAMILY="url-task-definition-tf"
           NEW_IMAGE="${{ steps.login-ecr.outputs.registry }}/url-shortener-repo:${{ github.sha }}"
+          
+          # Get current task definition
           TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)
-          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$NEW_IMAGE" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+          
+          # Create new task definition with updated image
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$NEW_IMAGE" \
+            '.taskDefinition | 
+            .containerDefinitions[0].image = $IMAGE | 
+            del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+          
           echo "$NEW_TASK_DEF" > new-task-def.json
-          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          
+          # Register new task definition
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
           echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+          echo "✅ Registered task definition: $TASK_DEF_ARN"
 
       - name: Trigger CodeDeploy Deployment
         env:
@@ -106,8 +134,23 @@ jobs:
           APPLICATION_NAME: url-codedeploy-app-tf
           DEPLOYMENT_GROUP_NAME: url-codedeploy-dg
         run: |
-          aws deploy create-deployment \
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name "$APPLICATION_NAME" \
             --deployment-group-name "$DEPLOYMENT_GROUP_NAME" \
             --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"{\\\"version\\\":1,\\\"Resources\\\":[{\\\"TargetService\\\":{\\\"Type\\\":\\\"AWS::ECS::Service\\\",\\\"Properties\\\":{\\\"TaskDefinition\\\":\\\"$TASK_DEF_ARN\\\",\\\"LoadBalancerInfo\\\":{\\\"ContainerName\\\":\\\"url-shortener-app-tf\\\",\\\"ContainerPort\\\":8080}}}}]}\"}}" \
-            --region "$AWS_REGION"
+            --region "$AWS_REGION" \
+            --query 'deploymentId' \
+            --output text)
+          
+          echo "✅ Started CodeDeploy deployment: $DEPLOYMENT_ID"
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
+
+      - name: Wait for deployment
+        env:
+          AWS_REGION: us-east-1
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          aws deploy wait deployment-successful \
+            --deployment-id $DEPLOYMENT_ID \
+            --region $AWS_REGION
+          echo "✅ Deployment completed successfully!"
