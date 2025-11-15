@@ -1,4 +1,284 @@
-name: Terraform Destroy
+name: CI - Pull Request
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+
+jobs:
+  test-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: app/Dockerfile
+          override-warning: DL3018
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd app
+          pip install -r requirements.txt
+          pip install bandit safety
+
+      # SAST - Python code security
+      - name: Run Bandit (SAST)
+        run: bandit -r app/ -f json -o bandit-report.json || true
+
+      # Dependency scanning
+      - name: Run Safety (dependency scan)
+        run: safety check --json || true
+
+      - name: Build Docker image
+        run: docker build -t url-shortener:test -f app/Dockerfile app
+
+      # Container scanning
+      - name: Run Trivy (container scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'url-shortener:test'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'  # Fail on CRITICAL/HIGH
+
+      - name: Test image runs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          docker run -d --name test-container \
+            -p 8080:8080 \
+            -e TABLE_NAME=url-dynamo-table \
+            -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+            -e AWS_DEFAULT_REGION=us-east-1 \
+            url-shortener:test
+          sleep 10
+          curl -f http://localhost:8080/healthz || exit 1
+          docker stop test-container
+          docker rm test-container
+
+🔧 UPDATED ci-main.yml
+Add security scanning before push:
+yamlname: CI/CD to ECS via CodeDeploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: app/Dockerfile
+          override-warning: DL3018
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd app
+          pip install -r requirements.txt
+          pip install bandit safety
+
+      # Security scans BEFORE building
+      - name: Run Bandit (SAST)
+        run: bandit -r app/ -ll  # Only report HIGH/MEDIUM
+
+      - name: Run Safety (dependency scan)
+        run: safety check
+
+      - name: Build Docker image
+        run: docker build -t url-shortener:test -f app/Dockerfile app
+
+      # Container scan BEFORE pushing
+      - name: Run Trivy (container scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'url-shortener:test'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'  # Fail on CRITICAL/HIGH
+
+      - name: Test image runs
+        run: |
+          docker run -d --name test-container \
+            -p 8080:8080 \
+            -e TABLE_NAME=url-dynamo-table \
+            -e AWS_DEFAULT_REGION=us-east-1 \
+            url-shortener:test
+          sleep 10
+          curl -f http://localhost:8080/healthz || exit 1
+          docker stop test-container
+          docker rm test-container
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::016873651140:role/Github_to_AWS_Url
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: url-shortener-repo
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag url-shortener:test $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Register new ECS task definition
+        id: register-task
+        run: |
+          TASK_FAMILY="url-task-definition-tf"
+          NEW_IMAGE="${{ steps.login-ecr.outputs.registry }}/url-shortener-repo:${{ github.sha }}"
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$NEW_IMAGE" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+          echo "$NEW_TASK_DEF" > new-task-def.json
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Trigger CodeDeploy Deployment
+        env:
+          AWS_REGION: us-east-1
+          APPLICATION_NAME: url-codedeploy-app-tf
+          DEPLOYMENT_GROUP_NAME: url-codedeploy-dg
+        run: |
+          aws deploy create-deployment \
+            --application-name "$APPLICATION_NAME" \
+            --deployment-group-name "$DEPLOYMENT_GROUP_NAME" \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"{\\\"version\\\":1,\\\"Resources\\\":[{\\\"TargetService\\\":{\\\"Type\\\":\\\"AWS::ECS::Service\\\",\\\"Properties\\\":{\\\"TaskDefinition\\\":\\\"$TASK_DEF_ARN\\\",\\\"LoadBalancerInfo\\\":{\\\"ContainerName\\\":\\\"url-shortener-app-tf\\\",\\\"ContainerPort\\\":8080}}}}]}\"}}" \
+            --region "$AWS_REGION"
+
+📋 NOW ADD TERRAFORM WORKFLOWS
+terraform-ci.yml
+yamlname: Terraform CI/CD
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write  # For commenting on PRs
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::016873651140:role/Github_to_AWS_Url
+          aws-region: us-east-1
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # IaC Security Scanning
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: terraform
+          soft_fail: true
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform
+          framework: terraform
+          soft_fail: true
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        continue-on-error: true
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📋
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve
+
+terraform-destroy.yml
+yamlname: Terraform Destroy
 
 on:
   workflow_dispatch:
@@ -56,13 +336,3 @@ jobs:
         run: |
           echo "🔥 Infrastructure destroyed for ${{ github.event.inputs.environment }}"
 ```
-
----
-
-## 📁 FINAL WORKFLOW STRUCTURE
-```
-.github/workflows/
-├── ci-pr.yml              # App: test + scan on PR
-├── ci-main.yml            # App: scan + build + deploy on main
-├── terraform-ci.yml       # Terraform: plan on PR, apply on main
-└── terraform-destroy.yml  # Terraform: manual destroy only
