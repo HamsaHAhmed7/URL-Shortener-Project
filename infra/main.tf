@@ -14,7 +14,6 @@ module "dynamodb" {
 module "endpoints" {
   source                 = "./modules/endpoints"
   vpc_id                 = module.vpc.vpc_id
-  ecs_sg_id              = module.sg.ecs_sg_id
   vpc_endpoint_sg_id     = module.sg.vpc_endpoint_sg_id
   private_subnet_ids     = module.vpc.private_subnet_ids
   private_route_table_id = module.vpc.private_route_table_id
@@ -31,7 +30,6 @@ module "alb" {
 
 module "ecs" {
   source                = "./modules/ecs"
-  vpc_id                = module.vpc.vpc_id
   private_subnet_ids    = module.vpc.private_subnet_ids
   ecs_security_group_id = module.sg.ecs_sg_id
   dynamodb_table_name   = module.dynamodb.table_name
@@ -51,7 +49,7 @@ module "codedeploy" {
 module "route53" {
   source       = "./modules/route53"
   alb_dns_name = module.alb.alb_dns_name
-  alb_zone_id  = "Z35SXDOTRQ7X7K" # ELB zone ID for us-east-1
+  alb_zone_id  = "Z35SXDOTRQ7X7K"
 }
 
 

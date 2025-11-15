@@ -56,23 +56,7 @@ resource "aws_lb_target_group" "green" {
   tags = { Name = "url-green" }
 }
 
-resource "aws_lb_listener" "listener_blue" {
-  load_balancer_arn = aws_lb.url_alb.arn
-  port              = 80
-  protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-      
-    }
-  }
-}
 
 
 resource "aws_lb_listener" "http_redirect" {
