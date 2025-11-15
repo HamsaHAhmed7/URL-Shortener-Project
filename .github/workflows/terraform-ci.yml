@@ -1,14 +1,15 @@
 name: Terraform CI/CD
 
 on:
+  workflow_dispatch:      # Add manual trigger
   pull_request:
     paths:
-      - 'terraform/**'
+      - 'infra/**'        # CHANGED FROM terraform/** to infra/**
   push:
     branches:
       - main
     paths:
-      - 'terraform/**'
+      - 'infra/**'        # CHANGED FROM terraform/** to infra/**
 
 permissions:
   id-token: write
@@ -20,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform/environments/dev
+        working-directory: infra  # CHANGED FROM terraform/environments/dev
 
     steps:
       - name: Checkout
@@ -53,13 +54,13 @@ jobs:
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.0
         with:
-          working_directory: terraform
+          working_directory: infra  # CHANGED FROM terraform
           soft_fail: true
 
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
-          directory: terraform
+          directory: infra          # CHANGED FROM terraform
           framework: terraform
           soft_fail: true
           output_format: cli
