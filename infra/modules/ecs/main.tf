@@ -40,15 +40,15 @@ resource "aws_ecs_task_definition" "url_task_tf" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "1024"
   memory                   = "3072"
-  execution_role_arn       = "arn:aws:iam::016873651140:role/url-shortener-dev-task-execution-role"
-  task_role_arn            = "arn:aws:iam::016873651140:role/url-shortener-dev-task-role"
+  execution_role_arn       = var.iam_task_execution_role_arn
+  task_role_arn            = var.iam_task_role_arn
 
   depends_on = [aws_cloudwatch_log_group.ecs_logs]
 
   container_definitions = jsonencode([
     {
       name      = "url-shortener-app-tf"
-      image     = "016873651140.dkr.ecr.us-east-1.amazonaws.com/url-shortener-repo@sha256:0a78b5ff29b85e5b11866c50ab11a543debdb9921e5e60594dc4f7c4688bfdff"
+      image     = "016873651140.dkr.ecr.eu-west-2.amazonaws.com/url-shortener:latest"
       essential = true
 
       portMappings = [
@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "url_task_tf" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = "/ecs/url-task-definition-tf"
-          awslogs-region        = "us-east-1"
+          awslogs-region        = "eu-west-2"
           awslogs-stream-prefix = "ecs"
         }
       }

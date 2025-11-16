@@ -14,3 +14,10 @@ variable "dynamodb_table_name" {
 variable "target_group_arn" {
   type = string
 }
+variable "iam_task_execution_role_arn" {
+  type = string
+}
+
+variable "iam_task_role_arn" {
+  type = string
+}

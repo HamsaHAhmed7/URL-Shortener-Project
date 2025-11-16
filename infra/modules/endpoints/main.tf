@@ -10,7 +10,7 @@ terraform {
 }
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = var.vpc_id
-  service_name      = "com.amazonaws.us-east-1.s3"
+  service_name      = "com.amazonaws.eu-west-2.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = [var.private_route_table_id]
 
@@ -22,7 +22,7 @@ resource "aws_vpc_endpoint" "s3" {
 
 resource "aws_vpc_endpoint" "dynamodb" {
   vpc_id            = var.vpc_id
-  service_name      = "com.amazonaws.us-east-1.dynamodb"
+  service_name      = "com.amazonaws.eu-west-2.dynamodb"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = [var.private_route_table_id]
 
@@ -34,7 +34,7 @@ resource "aws_vpc_endpoint" "dynamodb" {
 
 resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.us-east-1.ecr.api"
+  service_name        = "com.amazonaws.eu-west-2.ecr.api"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnet_ids
   security_group_ids  = [var.vpc_endpoint_sg_id]
@@ -48,7 +48,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
 
 resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.us-east-1.ecr.dkr"
+  service_name        = "com.amazonaws.eu-west-2.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnet_ids
   security_group_ids  = [var.vpc_endpoint_sg_id]
@@ -62,7 +62,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 
 resource "aws_vpc_endpoint" "logs" {
   vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.us-east-1.logs"
+  service_name        = "com.amazonaws.eu-west-2.logs"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnet_ids
   security_group_ids  = [var.vpc_endpoint_sg_id]

@@ -9,8 +9,9 @@ terraform {
   }
 }
 
-# ECR Repository for URL Shortener Application 
+# Deprecated ECR Repository for URL Shortener Application 
 # Moved to AWS Console for better management
+# Removed from IaC to avoid complexity 
 
 # resource "aws_ecr_repository" "url-repo" {
 #   name                 = "url-shortener-repo"

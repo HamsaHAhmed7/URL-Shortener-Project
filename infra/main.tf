@@ -1,3 +1,8 @@
+data "aws_route53_zone" "url_zone" {
+  name         = "hamsa-ahmed.co.uk"
+  private_zone = false
+}
+
 module "vpc" {
   source = "./modules/vpc"
 }
@@ -19,6 +24,12 @@ module "endpoints" {
   private_route_table_id = module.vpc.private_route_table_id
 }
 
+module "acm" {
+  source      = "./modules/acm"
+  domain_name = "url-shortener.hamsa-ahmed.co.uk"
+  zone_id     = data.aws_route53_zone.url_zone.id
+}
+
 module "alb" {
   source              = "./modules/alb"
   vpc_id              = module.vpc.vpc_id
@@ -27,14 +38,14 @@ module "alb" {
   acm_certificate_arn = module.acm.certificate_arn
 }
 
-
 module "ecs" {
   source                = "./modules/ecs"
   private_subnet_ids    = module.vpc.private_subnet_ids
   ecs_security_group_id = module.sg.ecs_sg_id
   dynamodb_table_name   = module.dynamodb.table_name
-
-  target_group_arn = module.alb.target_group_arn_blue
+  target_group_arn      = module.alb.target_group_arn_blue
+  iam_task_execution_role_arn = module.iam.task_execution_role_arn
+  iam_task_role_arn           = module.iam.task_role_arn
 }
 
 module "codedeploy" {
@@ -44,28 +55,22 @@ module "codedeploy" {
   target_group_blue_name  = "url-blue"
   target_group_green_name = "url-green"
   listener_arn            = module.alb.listener_arn_blue
+  iam_code_deploy_role_arn = module.iam.codedeploy_role_arn
 }
-
 module "route53" {
   source       = "./modules/route53"
   alb_dns_name = module.alb.alb_dns_name
-  alb_zone_id  = "Z35SXDOTRQ7X7K"
-}
-
-
-
-module "acm" {
-  source      = "./modules/acm"
-  domain_name = "url-shortener.hamsa-ahmed.co.uk"
-  zone_id     = data.aws_route53_zone.url_zone.id
-}
-
-data "aws_route53_zone" "url_zone" {
-  name         = "hamsa-ahmed.co.uk"
-  private_zone = false
+  alb_zone_id  = module.alb.alb_zone_id
 }
 
 module "waf" {
   source  = "./modules/waf"
   alb_arn = module.alb.alb_arn
+}
+
+module "iam" {
+  source = "./modules/iam"
+  aws_region = "eu-west-2"
+  dynamodb_table_name = module.dynamodb.table_name
+  
 }

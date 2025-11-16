@@ -17,3 +17,7 @@ variable "target_group_green_name" {
 variable "listener_arn" {
   type = string
 }
+
+variable "iam_code_deploy_role_arn" {
+  type = string
+}
