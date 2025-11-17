@@ -35,13 +35,15 @@ jobs:
       # ==========================================
       # 2. Inject env vars required by app for CI testing
       # ==========================================
-      - name: Inject env vars required by app
-        run: |
-          echo "TABLE_NAME=url-dynamo-table" >> $GITHUB_ENV
-          echo "AWS_REGION=eu-west-2" >> $GITHUB_ENV
-          echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
-          echo "PORT=8080" >> $GITHUB_ENV
+ - name: Inject env vars required by app
+  run: |
+    echo "TABLE_NAME=url-dynamo-table" >> $GITHUB_ENV
+    echo "AWS_REGION=eu-west-2" >> $GITHUB_ENV
+    echo "AWS_DEFAULT_REGION=eu-west-2" >> $GITHUB_ENV
+    echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
+    echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+    echo "PORT=8080" >> $GITHUB_ENV
+
 
       # ==========================================
       # 3. BUILD & TEST LOCALLY
