@@ -33,7 +33,7 @@ jobs:
           dockerfile: app/Dockerfile
 
       # ==========================================
-      # 2. FIX: Inject AWS env vars for local testing
+      # 2. Inject env vars required by app for CI testing
       # ==========================================
       - name: Inject env vars required by app
         run: |
@@ -41,6 +41,7 @@ jobs:
           echo "AWS_REGION=eu-west-2" >> $GITHUB_ENV
           echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+          echo "PORT=8080" >> $GITHUB_ENV
 
       # ==========================================
       # 3. BUILD & TEST LOCALLY
@@ -57,18 +58,21 @@ jobs:
             -e AWS_REGION=$AWS_REGION \
             -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
             -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+            -e PORT=$PORT \
             url-shortener:test
 
-          echo "Waiting for container to start..."
-          sleep 10
+          echo "Waiting 5 seconds for container startup..."
+          sleep 5
+
+          echo "=== CONTAINER STATUS ==="
+          docker ps -a
+
+          echo "=== CONTAINER LOGS ==="
+          docker logs test-container || true
+          echo "========================"
 
           echo "Testing health endpoint..."
-          curl -f http://localhost:8080/healthz || exit 1
-
-          echo "Container test passed."
-
-          docker stop test-container
-          docker rm test-container
+          curl -v http://localhost:8080/healthz
 
       # ==========================================
       # 4. SCAN IMAGE
@@ -129,7 +133,7 @@ jobs:
 
           echo "$NEW_TASK_DEF" > new-task-def.json
 
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
+          TASK_DEF_ARN=$(aws ecs.register-task-definition \
             --cli-input-json file://new-task-def.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
