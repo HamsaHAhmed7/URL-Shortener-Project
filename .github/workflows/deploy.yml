@@ -1,10 +1,12 @@
 name: Deploy to AWS
 
+
 on:
   push:
     branches: [main]
     paths:
       - 'app/**'
+     - '.github/workflows/deploy.yml#'
 
 env:
   AWS_REGION: eu-west-2
