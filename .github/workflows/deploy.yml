@@ -1,12 +1,11 @@
 name: Deploy to AWS
 
-
 on:
   push:
     branches: [main]
     paths:
       - 'app/**'
-     - '.github/workflows/deploy.yml#'
+      - '.github/workflows/deploy.yml'
 
 env:
   AWS_REGION: eu-west-2
@@ -37,15 +36,14 @@ jobs:
       # ==========================================
       # 2. Inject env vars required by app for CI testing
       # ==========================================
- - name: Inject env vars required by app
-  run: |
-    echo "TABLE_NAME=url-dynamo-table" >> $GITHUB_ENV
-    echo "AWS_REGION=eu-west-2" >> $GITHUB_ENV
-    echo "AWS_DEFAULT_REGION=eu-west-2" >> $GITHUB_ENV
-    echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
-    echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
-    echo "PORT=8080" >> $GITHUB_ENV
-
+      - name: Inject env vars required by app
+        run: |
+          echo "TABLE_NAME=url-dynamo-table" >> $GITHUB_ENV
+          echo "AWS_REGION=eu-west-2" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=eu-west-2" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
+          echo "PORT=8080" >> $GITHUB_ENV
 
       # ==========================================
       # 3. BUILD & TEST LOCALLY
@@ -60,6 +58,7 @@ jobs:
             -p 8080:8080 \
             -e TABLE_NAME=$TABLE_NAME \
             -e AWS_REGION=$AWS_REGION \
+            -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION \
             -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
             -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
             -e PORT=$PORT \
@@ -137,7 +136,7 @@ jobs:
 
           echo "$NEW_TASK_DEF" > new-task-def.json
 
-          TASK_DEF_ARN=$(aws ecs.register-task-definition \
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://new-task-def.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
