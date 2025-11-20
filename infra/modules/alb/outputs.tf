@@ -37,3 +37,7 @@ output "alb_arn" {
   value = aws_lb.url_alb.arn
 
 }
+
+output "alb_name" {
+  value = aws_lb.url_alb.name
+}

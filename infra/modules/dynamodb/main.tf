@@ -13,19 +13,20 @@ terraform {
 
 
 resource "aws_dynamodb_table" "url_dynamo" {
-
   name         = "url-dynamo-table"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "url_shortener"
+  hash_key     = "short_code"  
+
   server_side_encryption {
     enabled = true
   }
+
   point_in_time_recovery {
     enabled = true
   }
 
   attribute {
-    name = "url_shortener"
+    name = "short_code"  
     type = "S"
   }
 

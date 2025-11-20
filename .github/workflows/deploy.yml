@@ -22,9 +22,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ==========================================
-      # 1. CHECKOUT & LINT
-      # ==========================================
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -33,9 +31,7 @@ jobs:
         with:
           dockerfile: app/Dockerfile
 
-      # ==========================================
-      # 2. Inject env vars required by app for CI testing
-      # ==========================================
+
       - name: Inject env vars required by app
         run: |
           echo "TABLE_NAME=url-dynamo-table" >> $GITHUB_ENV
@@ -45,9 +41,7 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
           echo "PORT=8080" >> $GITHUB_ENV
 
-      # ==========================================
-      # 3. BUILD & TEST LOCALLY
-      # ==========================================
+
       - name: Build Docker image
         working-directory: ./app
         run: docker build -t url-shortener:test .
@@ -77,9 +71,6 @@ jobs:
           echo "Testing health endpoint..."
           curl -v http://localhost:8080/healthz
 
-      # ==========================================
-      # 4. SCAN IMAGE
-      # ==========================================
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -88,9 +79,6 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-      # ==========================================
-      # 5. AUTH → AWS
-      # ==========================================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -98,9 +86,7 @@ jobs:
           role-session-name: github-actions-deploy
           aws-region: ${{ env.AWS_REGION }}
 
-      # ==========================================
-      # 6. PUSH TO ECR
-      # ==========================================
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -115,9 +101,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      # ==========================================
-      # 7. UPDATE ECS TASK DEF
-      # ==========================================
+
       - name: Register new ECS task definition
         id: register-task
         env:
@@ -143,9 +127,6 @@ jobs:
 
           echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
 
-      # ==========================================
-      # 8. DEPLOY VIA CODEDEPLOY
-      # ==========================================
       - name: Deploy via CodeDeploy
         env:
           APPLICATION_NAME: url-codedeploy-app-tf
@@ -163,9 +144,7 @@ jobs:
             --deployment-id $DEPLOYMENT_ID \
             --region $AWS_REGION
 
-      # ==========================================
-      # 9. CONFIRM
-      # ==========================================
+
       - name: Verify deployment
         run: |
           echo "Deployment complete."

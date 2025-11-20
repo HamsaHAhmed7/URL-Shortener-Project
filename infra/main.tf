@@ -4,8 +4,8 @@ data "aws_route53_zone" "url_zone" {
 }
 
 module "github_oidc" {
-  source      = "./modules/github-oidc" 
-  github_repo = "HamsaHAhmed7/Url-Shortener-Project"
+  source      = "./modules/github-oidc"
+  github_repo = "HamsaHAhmed7/URL-Shortener-Project"
 }
 
 module "vpc" {

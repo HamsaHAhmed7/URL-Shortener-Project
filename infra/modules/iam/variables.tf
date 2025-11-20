@@ -1,7 +1,12 @@
 variable "aws_region" {
-    type = string
+  type = string
 }
 
 variable "dynamodb_table_name" {
-    type = string
+  type = string
 }
+
+variable "dynamodb_table_arn" {
+  type = string
+}
+

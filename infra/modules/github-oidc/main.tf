@@ -1,9 +1,7 @@
-# Get the OIDC provider (created manually in AWS Console)
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# IAM Role for GitHub Actions
 resource "aws_iam_role" "github_actions" {
   name = "github-actions-deploy-role"
 
@@ -17,7 +15,7 @@ resource "aws_iam_role" "github_actions" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/main"
         }
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
@@ -33,8 +31,8 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# Attach AdministratorAccess (for portfolio - in production use least privilege)
 resource "aws_iam_role_policy_attachment" "github_actions_admin" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
+
