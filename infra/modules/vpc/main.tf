@@ -102,7 +102,7 @@ resource "aws_route_table_association" "public_rt_assoc_2" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# Private route table - no NAT route, using VPC endpoints
+# no NAT route, using VPC endpoints
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.url_shortener_vpc.id
 
